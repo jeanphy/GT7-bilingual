@@ -1,0 +1,6 @@
+{
+  "name": "GT7 Endurance Strategy",
+  "description": "Bilingual French/English Gran Turismo 7 endurance race pit-stop, fuel, and tire strategy planner.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
