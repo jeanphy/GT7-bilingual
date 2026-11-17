@@ -135,12 +135,22 @@
       durationInput: '1h00',
       durationMinutes: 60,
       totalLaps: 25,
+      car: {
+        name: '',
+        category: '',
+        bopPowerHp: null,
+        bopWeightKg: null,
+      },
       pitFuel: {
         pitTransitSeconds: 24,
         tireChangeSeconds: 8,
         refuelRateLps: 4.0,
         fuelPerLapLiters: 7.8,
         fuelMarginLaps: 0.5,
+      },
+      raceInfo: {
+        tireWearMultiplier: 1,
+        fuelMultiplier: 1,
       },
       tires: {
         soft: createTireConfig('soft', true, '2:16.200', 8, false),
@@ -211,6 +221,8 @@
       var trackLengthKm = parseTrackLengthKm(trackLengthInput);
 
       var pf = cfg.pitFuel || {};
+      var carCfg = cfg.car || {};
+      var riCfg = cfg.raceInfo || {};
       return {
         language: language,
         theme: theme,
@@ -224,6 +236,16 @@
           totalLaps: Number.isFinite(cfg.totalLaps) && cfg.totalLaps >= 1
             ? Math.floor(cfg.totalLaps)
             : fallback.config.totalLaps,
+          car: {
+            name: typeof carCfg.name === 'string' ? carCfg.name : fallback.config.car.name,
+            category: typeof carCfg.category === 'string' ? carCfg.category : fallback.config.car.category,
+            bopPowerHp: Number.isFinite(carCfg.bopPowerHp) && carCfg.bopPowerHp > 0
+              ? carCfg.bopPowerHp
+              : null,
+            bopWeightKg: Number.isFinite(carCfg.bopWeightKg) && carCfg.bopWeightKg > 0
+              ? carCfg.bopWeightKg
+              : null,
+          },
           pitFuel: {
             pitTransitSeconds: Number.isFinite(pf.pitTransitSeconds) && pf.pitTransitSeconds >= 0
               ? pf.pitTransitSeconds
@@ -240,6 +262,14 @@
             fuelMarginLaps: Number.isFinite(pf.fuelMarginLaps) && pf.fuelMarginLaps >= 0
               ? pf.fuelMarginLaps
               : fallback.config.pitFuel.fuelMarginLaps,
+          },
+          raceInfo: {
+            tireWearMultiplier: Number.isFinite(riCfg.tireWearMultiplier) && riCfg.tireWearMultiplier >= 0
+              ? riCfg.tireWearMultiplier
+              : fallback.config.raceInfo.tireWearMultiplier,
+            fuelMultiplier: Number.isFinite(riCfg.fuelMultiplier) && riCfg.fuelMultiplier >= 0
+              ? riCfg.fuelMultiplier
+              : fallback.config.raceInfo.fuelMultiplier,
           },
           tires: mergedTires,
         },

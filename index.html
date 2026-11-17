@@ -33,9 +33,11 @@
         <nav id="top-nav" class="topnav" aria-label="Étapes">
           <a href="#step-1" data-i18n="navCircuit">Circuit</a>
           <a href="#step-2" data-i18n="navRace">Course</a>
-          <a href="#step-3" data-i18n="navPitFuel">Stands</a>
-          <a href="#step-4" data-i18n="navTires">Pneus</a>
-          <a href="#step-5" data-i18n="navStrategy">Stratégie</a>
+          <a href="#step-3" data-i18n="navCar">Voiture</a>
+          <a href="#step-4" data-i18n="navPitFuel">Stands</a>
+          <a href="#step-5" data-i18n="navRaceInfo">Infos course</a>
+          <a href="#step-6" data-i18n="navTires">Pneus</a>
+          <a href="#step-7" data-i18n="navStrategy">Stratégie</a>
         </nav>
       </div>
     </header>
@@ -152,12 +154,71 @@
           </section>
         </div>
 
-        <!-- Step 3: Pit Stop & Fuel -->
+        <!-- Step 3: Car -->
         <section id="step-3" class="panel no-print">
           <div class="panel-header">
             <div>
-              <h2 class="panel-title" data-i18n="step3Title">03. Passage au stand et carburant</h2>
+              <h2 class="panel-title" data-i18n="step3Title">03. Voiture</h2>
               <p class="panel-subtitle" data-i18n="step3Subtitle">
+                Nom du véhicule, catégorie et réglages BoP éventuels (puissance et poids).
+              </p>
+            </div>
+            <span id="car-status" class="status-text status-warn"></span>
+          </div>
+
+          <div class="form-grid-car">
+            <div class="field">
+              <label for="car-name-input">
+                <span data-i18n="carNameLabel">Nom de la voiture</span>
+                <span class="req-star">*</span>
+              </label>
+              <input id="car-name-input" type="text" class="input" required />
+              <span id="car-name-error" class="field-warn hidden" data-i18n="carNameRequired"></span>
+            </div>
+
+            <div class="field">
+              <label for="car-category-input">
+                <span data-i18n="carCategoryLabel">Catégorie</span>
+                <span class="req-star">*</span>
+              </label>
+              <input id="car-category-input" type="text" list="gt7-car-categories" class="input" required />
+              <datalist id="gt7-car-categories">
+                <option value="Gr.1"></option>
+                <option value="Gr.2"></option>
+                <option value="Gr.3"></option>
+                <option value="Gr.4"></option>
+                <option value="Gr.B"></option>
+                <option value="Super Formula"></option>
+                <option value="VGT"></option>
+                <option value="Road Car"></option>
+              </datalist>
+              <span id="car-category-error" class="field-warn hidden" data-i18n="carCategoryRequired"></span>
+            </div>
+
+            <div class="field">
+              <label for="car-bop-power-input">
+                <span id="car-bop-power-label-text">Puissance BoP (ch)</span>
+                <span class="optional-tag" data-i18n="optionalTag">optionnel</span>
+              </label>
+              <input id="car-bop-power-input" type="number" min="1" step="1" class="input mono" />
+            </div>
+
+            <div class="field">
+              <label for="car-bop-weight-input">
+                <span id="car-bop-weight-label-text">Poids BoP (kg)</span>
+                <span class="optional-tag" data-i18n="optionalTag">optionnel</span>
+              </label>
+              <input id="car-bop-weight-input" type="number" min="1" step="1" class="input mono" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 4: Pit Stop & Fuel -->
+        <section id="step-4" class="panel no-print">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title" data-i18n="step4Title">04. Passage au stand et carburant</h2>
+              <p class="panel-subtitle" data-i18n="step4Subtitle">
                 Paramètres de voie des stands et de consommation (réservoir normalisé à 100 L).
               </p>
             </div>
@@ -192,12 +253,39 @@
           </div>
         </section>
 
-        <!-- Step 4: Tire Performance -->
-        <section id="step-4" class="panel no-print">
+        <!-- Step 5: Race Information -->
+        <section id="step-5" class="panel no-print">
           <div class="panel-header">
             <div>
-              <h2 class="panel-title" data-i18n="step4Title">04. Performances des pneus</h2>
-              <p class="panel-subtitle" data-i18n="step4Subtitle">
+              <h2 class="panel-title" data-i18n="step5Title">05. Informations de la course</h2>
+              <p class="panel-subtitle" data-i18n="step5Subtitle">
+                Réglages d’usure des pneus et de consommation de carburant de l’épreuve.
+              </p>
+            </div>
+            <span class="field-hint" data-i18n="raceInfoNote">À titre informatif · sans impact sur la stratégie</span>
+          </div>
+
+          <div class="form-grid-race-info">
+            <div class="field">
+              <label for="tire-wear-mult-input" data-i18n="tireWearMultLabel">Multiplicateur d’usure des pneus (×)</label>
+              <input id="tire-wear-mult-input" type="number" step="0.5" min="0" max="50" class="input mono" />
+              <span class="field-hint" data-i18n="tireWearMultHint">Paramètre de salon / course GT7 (ex. ×1, ×2, ×3)</span>
+            </div>
+
+            <div class="field">
+              <label for="fuel-mult-input" data-i18n="fuelMultLabel">Multiplicateur de consommation (×)</label>
+              <input id="fuel-mult-input" type="number" step="0.5" min="0" max="50" class="input mono" />
+              <span class="field-hint" data-i18n="fuelMultHint">Paramètre de salon / course GT7 (ex. ×1, ×2, ×3)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 6: Tire Performance -->
+        <section id="step-6" class="panel no-print">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title" data-i18n="step6Title">06. Performances des pneus</h2>
+              <p class="panel-subtitle" data-i18n="step6Subtitle">
                 Temps au tour moyen (ex. 1:48.500 ou 108.5), usure max et gommes obligatoires.
               </p>
             </div>
@@ -223,12 +311,12 @@
           </p>
         </section>
 
-        <!-- Step 5: Strategy & Comparison -->
-        <section id="step-5" class="panel">
+        <!-- Step 7: Strategy & Comparison -->
+        <section id="step-7" class="panel">
           <div class="panel-header">
             <div>
-              <h2 class="panel-title" data-i18n="step5Title">05. Stratégie et comparaison</h2>
-              <p class="panel-subtitle" data-i18n="step5Subtitle">
+              <h2 class="panel-title" data-i18n="step7Title">07. Stratégie et comparaison</h2>
+              <p class="panel-subtitle" data-i18n="step7Subtitle">
                 Plan optimal calculé automatiquement, entièrement modifiable avec contrôles en direct.
               </p>
             </div>

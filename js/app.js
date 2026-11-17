@@ -60,6 +60,15 @@
     document.getElementById('track-length-label-text').textContent =
       dict.trackLengthLabel + ' (' + dict.trackLengthUnit + ')';
 
+    document.getElementById('car-name-input').placeholder = dict.carNamePlaceholder;
+    document.getElementById('car-category-input').placeholder = dict.carCategoryPlaceholder;
+    document.getElementById('car-bop-power-label-text').textContent =
+      dict.bopPowerLabel + ' (' + dict.bopPowerUnit + ')';
+    document.getElementById('car-bop-power-input').placeholder = dict.bopPowerPlaceholder;
+    document.getElementById('car-bop-weight-label-text').textContent =
+      dict.bopWeightLabel + ' (' + dict.bopWeightUnit + ')';
+    document.getElementById('car-bop-weight-input').placeholder = dict.bopWeightPlaceholder;
+
     var langBtns = document.querySelectorAll('#lang-switch button');
     for (var li = 0; li < langBtns.length; li++) {
       langBtns[li].classList.toggle('active', langBtns[li].getAttribute('data-lang') === state.language);
@@ -73,15 +82,23 @@
 
   function syncInputsFromState() {
     var cfg = state.config;
+    var car = cfg.car || {};
     document.getElementById('track-name-input').value = cfg.trackName;
     document.getElementById('track-length-input').value = cfg.trackLengthInput;
     document.getElementById('duration-input').value = cfg.durationInput;
     document.getElementById('laps-input').value = String(cfg.totalLaps);
+    document.getElementById('car-name-input').value = car.name || '';
+    document.getElementById('car-category-input').value = car.category || '';
+    document.getElementById('car-bop-power-input').value = car.bopPowerHp !== null && car.bopPowerHp !== undefined ? String(car.bopPowerHp) : '';
+    document.getElementById('car-bop-weight-input').value = car.bopWeightKg !== null && car.bopWeightKg !== undefined ? String(car.bopWeightKg) : '';
     document.getElementById('pit-transit-input').value = String(cfg.pitFuel.pitTransitSeconds);
     document.getElementById('tire-change-input').value = String(cfg.pitFuel.tireChangeSeconds);
     document.getElementById('refuel-rate-input').value = String(cfg.pitFuel.refuelRateLps);
     document.getElementById('fuel-per-lap-input').value = String(cfg.pitFuel.fuelPerLapLiters);
     document.getElementById('fuel-margin-input').value = String(cfg.pitFuel.fuelMarginLaps);
+    var ri = cfg.raceInfo || { tireWearMultiplier: 1, fuelMultiplier: 1 };
+    document.getElementById('tire-wear-mult-input').value = String(ri.tireWearMultiplier);
+    document.getElementById('fuel-mult-input').value = String(ri.fuelMultiplier);
 
     buildTiresTable();
   }
@@ -181,6 +198,19 @@
     document.getElementById('track-length-input').classList.toggle('warn-border', lengthMissing);
     document.getElementById('track-length-error').classList.toggle('hidden', !lengthMissing);
 
+    // Car validation UI
+    var car = cfg.car || { name: '', category: '', bopPowerHp: null, bopWeightKg: null };
+    var carNameMissing = (car.name || '').trim().length === 0;
+    var carCategoryMissing = (car.category || '').trim().length === 0;
+    var carStatus = document.getElementById('car-status');
+    carStatus.textContent = !carNameMissing && !carCategoryMissing ? dict.carConfigured : dict.carFieldsRequired;
+    carStatus.className = 'status-text ' + (!carNameMissing && !carCategoryMissing ? 'status-ok' : 'status-warn');
+
+    document.getElementById('car-name-input').classList.toggle('warn-border', carNameMissing);
+    document.getElementById('car-name-error').classList.toggle('hidden', !carNameMissing);
+    document.getElementById('car-category-input').classList.toggle('warn-border', carCategoryMissing);
+    document.getElementById('car-category-error').classList.toggle('hidden', !carCategoryMissing);
+
     // Race mode panels
     var modeBtns = document.querySelectorAll('#race-mode-switch button');
     for (var mi = 0; mi < modeBtns.length; mi++) {
@@ -193,6 +223,7 @@
     document.getElementById('duration-input').classList.toggle('invalid', Logic.parseDurationMinutes(cfg.durationInput) === null);
 
     // Fuel summary
+    var ri = cfg.raceInfo || { tireWearMultiplier: 1, fuelMultiplier: 1 };
     var fuelPerLap = cfg.pitFuel.fuelPerLapLiters;
     var maxFuelLaps = fuelPerLap > 0 ? Math.floor(Logic.TANK_CAPACITY_LITERS / fuelPerLap) : 0;
     var fullRefuel = cfg.pitFuel.refuelRateLps > 0 ? Logic.TANK_CAPACITY_LITERS / cfg.pitFuel.refuelRateLps : 0;
@@ -251,9 +282,18 @@
     var trackLabel = cfg.trackName.trim() || dict.unnamedTrackFallback;
     var trackLenStr = cfg.trackLengthKm !== null ? ' (' + cfg.trackLengthKm.toFixed(3) + ' ' + dict.trackLengthUnit + ')' : '';
     var raceStr = cfg.mode === 'duration' ? Logic.formatDurationMinutes(cfg.durationMinutes) : dict.lapsWord(cfg.totalLaps);
+    var carLabel = (car.name || '').trim() || dict.unnamedCarFallback;
+    var carCatStr = (car.category || '').trim() ? ' (' + car.category.trim() + ')' : '';
+    var bopParts = [];
+    if (car.bopPowerHp !== null) bopParts.push(car.bopPowerHp + ' ' + dict.bopPowerUnit);
+    if (car.bopWeightKg !== null) bopParts.push(car.bopWeightKg + ' ' + dict.bopWeightUnit);
+    var bopStr = bopParts.length > 0 ? ' · BoP: ' + bopParts.join(' / ') : '';
+
     document.getElementById('print-race-summary').innerHTML =
       '<div><strong>' + escapeHtml(dict.trackNameLabel) + ':</strong> ' + escapeHtml(trackLabel + trackLenStr) + '</div>' +
-      '<div><strong>' + escapeHtml(dict.navRace) + ':</strong> <span class="mono">' + escapeHtml(raceStr) + '</span></div>' +
+      '<div><strong>' + escapeHtml(dict.navCar) + ':</strong> ' + escapeHtml(carLabel + carCatStr + bopStr) + '</div>' +
+      '<div><strong>' + escapeHtml(dict.navRace) + ':</strong> <span class="mono">' + escapeHtml(raceStr) +
+      ' · ×' + ri.tireWearMultiplier + ' / ×' + ri.fuelMultiplier + '</span></div>' +
       '<div><strong>' + escapeHtml(dict.navPitFuel) + ':</strong> <span class="mono">' +
       cfg.pitFuel.pitTransitSeconds + 's + ' + cfg.pitFuel.tireChangeSeconds + 's · ' +
       cfg.pitFuel.refuelRateLps + ' L/s · ' + cfg.pitFuel.fuelPerLapLiters + ' L' + escapeHtml(dict.perLapShort) +
@@ -633,7 +673,40 @@
       }
     });
 
-    // Step 3 pit & fuel inputs
+    // Step 3 car inputs
+    document.getElementById('car-name-input').addEventListener('input', function (ev) {
+      state.config.car.name = ev.currentTarget.value;
+      persistAndUpdate();
+    });
+
+    document.getElementById('car-category-input').addEventListener('input', function (ev) {
+      state.config.car.category = ev.currentTarget.value;
+      persistAndUpdate();
+    });
+
+    document.getElementById('car-bop-power-input').addEventListener('input', function (ev) {
+      var raw = String(ev.currentTarget.value).trim();
+      if (!raw) {
+        state.config.car.bopPowerHp = null;
+      } else {
+        var num = parseFloat(raw.replace(',', '.'));
+        state.config.car.bopPowerHp = Number.isFinite(num) && num > 0 ? num : null;
+      }
+      persistAndUpdate();
+    });
+
+    document.getElementById('car-bop-weight-input').addEventListener('input', function (ev) {
+      var raw = String(ev.currentTarget.value).trim();
+      if (!raw) {
+        state.config.car.bopWeightKg = null;
+      } else {
+        var num = parseFloat(raw.replace(',', '.'));
+        state.config.car.bopWeightKg = Number.isFinite(num) && num > 0 ? num : null;
+      }
+      persistAndUpdate();
+    });
+
+    // Step 4 pit & fuel inputs
     var pitBindings = [
       ['pit-transit-input', 'pitTransitSeconds', 0],
       ['tire-change-input', 'tireChangeSeconds', 0],
@@ -653,11 +726,28 @@
       })(pitBindings[pi][0], pitBindings[pi][1], pitBindings[pi][2]);
     }
 
-    // Step 4 delegated events on tires tbody
+    // Step 5 race information multipliers (informational only)
+    var raceInfoBindings = [
+      ['tire-wear-mult-input', 'tireWearMultiplier'],
+      ['fuel-mult-input', 'fuelMultiplier'],
+    ];
+    for (var rii = 0; rii < raceInfoBindings.length; rii++) {
+      (function (elId, field) {
+        document.getElementById(elId).addEventListener('input', function (ev) {
+          var num = parseFloat(String(ev.currentTarget.value).replace(',', '.'));
+          if (Number.isFinite(num) && num >= 0) {
+            state.config.raceInfo[field] = Math.max(0, Math.min(50, num));
+            persistAndUpdate();
+          }
+        });
+      })(raceInfoBindings[rii][0], raceInfoBindings[rii][1]);
+    }
+
+    // Step 6 delegated events on tires tbody
     document.getElementById('tires-table-body').addEventListener('input', handleTireEvent);
     document.getElementById('tires-table-body').addEventListener('change', handleTireEvent);
 
-    // Step 5 top actions
+    // Step 7 top actions
     document.getElementById('apply-optimal-btn').addEventListener('click', function () {
       customStints = null;
       renderAllDynamicOutputs();
