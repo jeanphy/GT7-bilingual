@@ -274,5 +274,52 @@ test('Race information tire wear and fuel multipliers do not impact strategy cal
   );
 });
 
+test('Reordering stints recalculates refuel amounts and normalizes tire change flags', function () {
+  var cfg = Logic.createDefaultConfig();
+  cfg.mode = 'laps';
+  cfg.totalLaps = 22;
+  cfg.pitFuel = {
+    pitTransitSeconds: 20,
+    tireChangeSeconds: 8,
+    refuelRateLps: 5,
+    fuelPerLapLiters: 10,
+    fuelMarginLaps: 0.5,
+  };
+
+  var initial = [
+    { id: 's1', compound: 'medium', laps: 8, changeTires: true },
+    { id: 's2', compound: 'soft', laps: 5, changeTires: true },
+    { id: 's3', compound: 'soft', laps: 9, changeTires: false },
+  ];
+
+  var evalBefore = Strategy.evaluateStrategy(cfg, initial);
+  // Stint 0: 8 laps -> 20L left. Stint 1 (5 laps): needs 55L -> +35L, 5L left. Stint 2 (9 laps): needs 95L -> +90L
+  assert.equal(evalBefore.stints[1].fuelAddedBeforeStint, 35);
+  assert.equal(evalBefore.stints[2].fuelAddedBeforeStint, 90);
+
+  // Move stint 2 (9 laps) ahead of stint 1 (5 laps)
+  var reordered = Strategy.reorderStints(initial, 2, 1);
+  assert.deepEqual(
+    reordered.map(function (s) { return s.compound + ':' + s.laps; }),
+    ['medium:8', 'soft:9', 'soft:5']
+  );
+  // First soft stint after medium must change tires
+  assert.equal(reordered[1].changeTires, true);
+
+  var evalAfter = Strategy.evaluateStrategy(cfg, reordered);
+  // Stint 0: 8 laps -> 20L left. Stint 1 (9 laps): needs 95L -> +75L, 5L left. Stint 2 (5 laps): needs 55L -> +50L
+  assert.equal(evalAfter.stints[1].fuelAddedBeforeStint, 75);
+  assert.equal(evalAfter.stints[2].fuelAddedBeforeStint, 50);
+
+  // Move stint 1 (9 laps) to grid start (index 0): total fuel added changes because start tank is 100L
+  var reorderedStart = Strategy.reorderStints(reordered, 1, 0);
+  var evalStart = Strategy.evaluateStrategy(cfg, reorderedStart);
+  assert.equal(reorderedStart[0].changeTires, true);
+  assert.equal(evalStart.stints[0].fuelStartLiters, 100);
+  assert.equal(evalStart.stints[0].fuelEndLiters, 10);
+  assert.equal(evalStart.stints[1].fuelAddedBeforeStint, 75);
+});
+
+
 
 

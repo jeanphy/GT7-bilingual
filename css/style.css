@@ -691,6 +691,51 @@ html:not(.dark) .text-wet { color: #0284c7; }
   gap: 4px;
 }
 
+.order-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-subtle);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.order-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.btn-order {
+  width: 24px;
+  height: 26px;
+  font-size: 0.75rem;
+}
+
+tr.stint-row.dragging {
+  opacity: 0.45;
+}
+
+tr.stint-row.drag-over td {
+  background-color: rgba(225, 29, 72, 0.09);
+}
+
 .laps-input {
   width: 48px;
   height: 30px;

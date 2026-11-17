@@ -439,9 +439,21 @@
         tireActionHtml = '<span>' + escapeHtml(dict.newTireSet) + '</span>';
       }
 
+      var orderCellHtml = editedStints.length > 1
+        ? '<div class="order-cell">' +
+          '<span class="drag-handle no-print" draggable="true" data-drag-idx="' + si + '" title="' + escapeHtml(dict.dragStintHint) + '">⋮⋮</span>' +
+          '<span class="mono">' + (si + 1) + '</span>' +
+          '<div class="order-btns no-print">' +
+          '<button type="button" class="btn btn-icon btn-order" data-stint-action="move-up" data-stint-idx="' + si + '" ' +
+          (si === 0 ? 'disabled' : '') + ' aria-label="' + escapeHtml(dict.moveStintUp) + '" title="' + escapeHtml(dict.moveStintUp) + '">↑</button>' +
+          '<button type="button" class="btn btn-icon btn-order" data-stint-action="move-down" data-stint-idx="' + si + '" ' +
+          (si === editedStints.length - 1 ? 'disabled' : '') + ' aria-label="' + escapeHtml(dict.moveStintDown) + '" title="' + escapeHtml(dict.moveStintDown) + '">↓</button>' +
+          '</div></div>'
+        : '<span class="mono">' + (si + 1) + '</span>';
+
       html +=
-        '<tr>' +
-        '<td class="mono">' + (si + 1) + '</td>' +
+        '<tr class="stint-row" data-row-idx="' + si + '">' +
+        '<td>' + orderCellHtml + '</td>' +
         '<td><span class="print-only text-' + rawSt.compound + '" style="font-weight:600">' +
         escapeHtml(dict.compounds[rawSt.compound].short + ' — ' + dict.compounds[rawSt.compound].name) + '</span>' +
         '<select class="select stint-select no-print text-' + rawSt.compound + '" data-stint-action="compound" data-stint-idx="' + si + '">' +
@@ -567,7 +579,11 @@
 
         if (act === 'compound') {
           currentList[idx].compound = el.value;
-          customStints = normalizeStintTireFlags(currentList);
+          customStints = Strategy.normalizeStintTireFlags(currentList);
+        } else if (act === 'move-up' && idx > 0) {
+          customStints = Strategy.reorderStints(currentList, idx, idx - 1);
+        } else if (act === 'move-down' && idx < currentList.length - 1) {
+          customStints = Strategy.reorderStints(currentList, idx, idx + 1);
         } else if (act === 'dec-laps') {
           currentList[idx].laps = Math.max(1, currentList[idx].laps - 1);
           customStints = currentList;
@@ -585,19 +601,60 @@
           customStints = currentList;
         } else if (act === 'remove' && currentList.length > 1) {
           currentList.splice(idx, 1);
-          customStints = normalizeStintTireFlags(currentList);
+          customStints = Strategy.normalizeStintTireFlags(currentList);
         }
         renderAllDynamicOutputs();
       });
     }
-  }
 
-  function normalizeStintTireFlags(list) {
-    return list.map(function (s, idx) {
-      if (idx === 0) return Object.assign({}, s, { changeTires: true });
-      if (s.compound !== list[idx - 1].compound) return Object.assign({}, s, { changeTires: true });
-      return s;
-    });
+    // Drag-and-drop stint reordering
+    var dragFromIdx = null;
+    var dragHandles = outputContainer.querySelectorAll('[data-drag-idx]');
+    for (var dh = 0; dh < dragHandles.length; dh++) {
+      dragHandles[dh].addEventListener('dragstart', function (ev) {
+        dragFromIdx = parseInt(ev.currentTarget.getAttribute('data-drag-idx'), 10);
+        if (ev.dataTransfer) {
+          ev.dataTransfer.effectAllowed = 'move';
+          ev.dataTransfer.setData('text/plain', String(dragFromIdx));
+        }
+        var row = ev.currentTarget.closest('tr');
+        if (row) row.classList.add('dragging');
+      });
+      dragHandles[dh].addEventListener('dragend', function () {
+        dragFromIdx = null;
+        var rows = outputContainer.querySelectorAll('tr.stint-row');
+        for (var r = 0; r < rows.length; r++) {
+          rows[r].classList.remove('dragging', 'drag-over');
+        }
+      });
+    }
+
+    var stintRows = outputContainer.querySelectorAll('tr.stint-row');
+    for (var sr = 0; sr < stintRows.length; sr++) {
+      stintRows[sr].addEventListener('dragover', function (ev) {
+        if (dragFromIdx === null) return;
+        ev.preventDefault();
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+        ev.currentTarget.classList.add('drag-over');
+      });
+      stintRows[sr].addEventListener('dragleave', function (ev) {
+        ev.currentTarget.classList.remove('drag-over');
+      });
+      stintRows[sr].addEventListener('drop', function (ev) {
+        if (dragFromIdx === null) return;
+        ev.preventDefault();
+        var toIdx = parseInt(ev.currentTarget.getAttribute('data-row-idx'), 10);
+        ev.currentTarget.classList.remove('drag-over');
+        if (Number.isFinite(toIdx) && dragFromIdx !== toIdx) {
+          var currentList = (customStints || optimalStints).map(function (s) {
+            return Object.assign({}, s);
+          });
+          customStints = Strategy.reorderStints(currentList, dragFromIdx, toIdx);
+          dragFromIdx = null;
+          renderAllDynamicOutputs();
+        }
+      });
+    }
   }
 
   function persistAndUpdate() {

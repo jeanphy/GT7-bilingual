@@ -22,6 +22,37 @@
     return candidate.totalTimeSeconds < incumbent.totalTimeSeconds - EPS;
   }
 
+  function normalizeStintTireFlags(stintsInput) {
+    return stintsInput.map(function (s, idx) {
+      var copy = Object.assign({}, s);
+      if (idx === 0) {
+        copy.changeTires = true;
+      } else if (copy.compound !== stintsInput[idx - 1].compound) {
+        copy.changeTires = true;
+      }
+      return copy;
+    });
+  }
+
+  function reorderStints(stintsInput, fromIndex, toIndex) {
+    if (
+      !Array.isArray(stintsInput) ||
+      fromIndex < 0 ||
+      fromIndex >= stintsInput.length ||
+      toIndex < 0 ||
+      toIndex >= stintsInput.length ||
+      fromIndex === toIndex
+    ) {
+      return stintsInput ? stintsInput.slice() : [];
+    }
+    var list = stintsInput.map(function (s) {
+      return Object.assign({}, s);
+    });
+    var moved = list.splice(fromIndex, 1)[0];
+    list.splice(toIndex, 0, moved);
+    return normalizeStintTireFlags(list);
+  }
+
   function evaluateStrategy(config, stintsInput) {
     var issues = [];
     var pitFuel = config.pitFuel;
@@ -661,6 +692,8 @@
 
   return {
     isBetterStrategy: isBetterStrategy,
+    normalizeStintTireFlags: normalizeStintTireFlags,
+    reorderStints: reorderStints,
     evaluateStrategy: evaluateStrategy,
     findOptimalStrategies: findOptimalStrategies,
     solveBruteForce: solveBruteForce,
