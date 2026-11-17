@@ -596,52 +596,6 @@
       persistAndUpdate();
     });
 
-    // Copy summary
-    document.getElementById('copy-plan-btn').addEventListener('click', function () {
-      var dict = t();
-      var cfg = state.config;
-      var optRes = Strategy.findOptimalStrategies(cfg);
-      var activeList = customStints || strategyToStintInputs(optRes.best);
-      var ev = Strategy.evaluateStrategy(cfg, activeList);
-
-      var trackLabel = cfg.trackName.trim() || dict.unnamedTrackFallback;
-      var lenNote = cfg.trackLengthKm !== null ? ' (' + cfg.trackLengthKm.toFixed(3) + ' ' + dict.trackLengthUnit + ')' : '';
-      var raceDesc = cfg.mode === 'duration'
-        ? Logic.formatDurationMinutes(cfg.durationMinutes)
-        : cfg.trackLengthKm !== null
-          ? dict.lapsWord(cfg.totalLaps) + ' (' + (cfg.totalLaps * cfg.trackLengthKm).toFixed(1) + ' ' + dict.trackLengthUnit + ')'
-          : dict.lapsWord(cfg.totalLaps);
-
-      var lines = [
-        dict.copyHeader + ' — ' + trackLabel + lenNote + ' · ' + raceDesc,
-        dict.totalTimeLabel + ': ' + Logic.formatRaceTime(ev.totalTimeSeconds) + ' | ' +
-        dict.totalLapsLabel + ': ' + ev.totalLaps + ' | ' +
-        dict.pitStopsLabel + ': ' + ev.totalStops + ' | ' +
-        dict.totalFuelAddedLabel + ': ' + ev.totalFuelAddedLiters.toFixed(1) + ' L',
-        '',
-      ].concat(
-        ev.stints.map(function (st, idx) {
-          var comp = dict.compounds[st.compound].name;
-          var pitNote = idx === 0
-            ? dict.raceStartLabel
-            : '+' + st.fuelAddedBeforeStint.toFixed(1) + 'L · ' +
-              (st.changeTires ? dict.newTireSet : dict.keepTireSet) +
-              ' (' + st.pitDurationBeforeStint.toFixed(1) + 's)';
-          return dict.stintCol + ' ' + (idx + 1) + ': ' + comp + ' · ' + dict.lapsWord(st.laps) + ' (' + pitNote + ')';
-        })
-      );
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(lines.join('\n')).then(function () {
-          var btn = document.getElementById('copy-plan-btn');
-          btn.textContent = dict.copiedFeedback;
-          setTimeout(function () {
-            btn.textContent = t().copySummaryBtn;
-          }, 1800);
-        });
-      }
-    });
-
     // Step 1 inputs
     document.getElementById('track-name-input').addEventListener('input', function (ev) {
       state.config.trackName = ev.currentTarget.value;

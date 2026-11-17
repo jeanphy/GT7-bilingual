@@ -17,8 +17,6 @@
       navTires: 'Pneus',
       navStrategy: 'Stratégie',
       stepsNavAria: 'Étapes',
-      copySummaryBtn: 'Copier le plan',
-      copiedFeedback: 'Copié',
       resetDefaultsBtn: 'Réinitialiser',
       workspaceLead: 'Stratégie d’endurance Gran Turismo 7',
       workspaceSub: 'Planificateur d’arrêts aux stands, de carburant et de relais pneumatiques · Sauvegarde locale automatique',
@@ -118,7 +116,6 @@
       perLapShort: '/tour',
       bestLabel: 'Optimal',
       optimalShort: 'Opt',
-      copyHeader: 'Stratégie GT7 Endurance',
       assumptionsTitle: 'Hypothèses du modèle de calcul',
       assumptionsList: [
         'Départ réservoir plein (100 L) ; ravitaillement limité au nécessaire jusqu’au relais suivant plus la marge configurée.',
@@ -176,8 +173,6 @@
       navTires: 'Tires',
       navStrategy: 'Strategy',
       stepsNavAria: 'Steps',
-      copySummaryBtn: 'Copy Plan',
-      copiedFeedback: 'Copied',
       resetDefaultsBtn: 'Reset',
       workspaceLead: 'Gran Turismo 7 Endurance Strategy',
       workspaceSub: 'Pit stop, fuel, and tire stint planner · Automatic local browser persistence',
@@ -277,7 +272,6 @@
       perLapShort: '/lap',
       bestLabel: 'Best',
       optimalShort: 'Opt',
-      copyHeader: 'GT7 Endurance Strategy',
       assumptionsTitle: 'Calculation Model Assumptions',
       assumptionsList: [
         'Race starts on a full 100 L tank; refueling adds only what is required until the next stop plus the configured margin.',
