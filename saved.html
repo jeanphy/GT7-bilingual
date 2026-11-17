@@ -6,7 +6,7 @@
     <title>Stratégies sauvegardées · GT7 Endurance</title>
     <meta
       name="description"
-      content="Bibliothèque de stratégies d’endurance Gran Turismo 7 (base partagée communautaire et sauvegardes locales)."
+      content="Bibliothèque locale de stratégies d’endurance Gran Turismo 7."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,7 +18,6 @@
     <script defer src="./js/i18n.js"></script>
     <script defer src="./js/logic.js"></script>
     <script defer src="./js/strategy.js"></script>
-    <script defer src="./js/db.js"></script>
     <script defer src="./js/saved.js"></script>
   </head>
   <body>
@@ -42,7 +41,7 @@
         <div>
           <h1 class="page-title" data-i18n="savedPageLead">Stratégies sauvegardées</h1>
           <p class="page-subtitle" data-i18n="savedPageSub">
-            Consultez, filtrez et rechargez vos stratégies locales ou partagées avec toute la communauté.
+            Consultez, recherchez et rechargez vos stratégies enregistrées dans votre navigateur.
           </p>
         </div>
 
@@ -60,61 +59,10 @@
       </div>
 
       <div class="stack">
-        <!-- Database / Storage Option Panel -->
-        <section class="panel">
-          <div class="panel-header">
-            <div>
-              <h2 class="panel-title" data-i18n="storageOptionHeading">Option de base de données par défaut</h2>
-              <p class="panel-subtitle" data-i18n="storageOptionDesc">
-                Choisissez si les sauvegardes vont dans la base partagée (visible par tous les utilisateurs) ou restent locales.
-              </p>
-            </div>
-            <div class="toolbar-controls">
-              <div class="auth-chip">
-                <span id="saved-auth-dot" class="auth-dot"></span>
-                <span id="saved-auth-status" data-i18n="sharedDbPublicHint">
-                  Lecture ouverte à tous · Connexion Google requise pour publier.
-                </span>
-              </div>
-              <button type="button" id="saved-auth-btn" class="btn btn-secondary" data-i18n="signInGoogleBtn">
-                Connexion Google
-              </button>
-            </div>
-          </div>
-
-          <div class="db-options-grid" role="radiogroup">
-            <label id="db-opt-shared-card" class="db-option-card active">
-              <input type="radio" name="storage-mode" value="shared" checked />
-              <div>
-                <div class="db-option-title" data-i18n="sharedDbOption">Base partagée (visible par tous)</div>
-                <div class="db-option-desc" data-i18n="sharedDbDesc">
-                  Tous les utilisateurs peuvent consulter et charger les stratégies publiées.
-                </div>
-              </div>
-            </label>
-
-            <label id="db-opt-local-card" class="db-option-card">
-              <input type="radio" name="storage-mode" value="local" />
-              <div>
-                <div class="db-option-title" data-i18n="localDbOption">Navigateur local uniquement</div>
-                <div class="db-option-desc" data-i18n="localDbDesc">
-                  Stockage privé dans ce navigateur sans compte Google.
-                </div>
-              </div>
-            </label>
-          </div>
-        </section>
-
-        <!-- Search & Source Filter -->
+        <!-- Search Toolbar -->
         <section class="saved-toolbar">
           <div class="saved-search-wrap">
             <input id="saved-search-input" type="search" class="input" />
-          </div>
-
-          <div id="source-filter-switch" class="segmented accent-tabs" role="tablist">
-            <button type="button" role="tab" data-filter="all" class="active" data-i18n="filterAll">Toutes</button>
-            <button type="button" role="tab" data-filter="shared" data-i18n="filterShared">Base partagée</button>
-            <button type="button" role="tab" data-filter="local" data-i18n="filterLocal">Local</button>
           </div>
         </section>
 

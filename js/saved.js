@@ -3,17 +3,11 @@
 
   var TRANSLATIONS = window.GT7I18n.TRANSLATIONS;
   var Logic = window.GT7Logic;
-  var Db = window.GT7Db;
 
   var state = Logic.loadSavedAppState();
-  var sharedStrategies = [];
-  var localStrategies = Db ? Db.listLocalStrategies() : [];
-  var loadingShared = true;
-  var sharedLoadError = false;
-  var activeFilter = 'all';
+  var localStrategies = Logic.listSavedStrategies();
   var searchQuery = '';
-  var pendingDeleteKey = null;
-  var unsubscribeShared = null;
+  var pendingDeleteId = null;
 
   function t() {
     return TRANSLATIONS[state.language] || TRANSLATIONS.fr;
@@ -28,15 +22,9 @@
   }
 
   function formatTimestamp(item) {
-    var ms = 0;
-    if (typeof item.updatedAtMs === 'number' && item.updatedAtMs > 0) {
-      ms = item.updatedAtMs;
-    } else if (item.updatedAt && typeof item.updatedAt.toMillis === 'function') {
-      ms = item.updatedAt.toMillis();
-    } else if (typeof item.updatedAt === 'string') {
-      ms = new Date(item.updatedAt).getTime() || 0;
-    }
-    if (!ms) return '';
+    if (!item || !item.updatedAt) return '';
+    var ms = new Date(item.updatedAt).getTime();
+    if (!Number.isFinite(ms) || ms <= 0) return '';
     try {
       return new Intl.DateTimeFormat(state.language === 'en' ? 'en-US' : 'fr-FR', {
         dateStyle: 'medium',
@@ -88,63 +76,18 @@
     for (var ti = 0; ti < themeBtns.length; ti++) {
       themeBtns[ti].classList.toggle('active', themeBtns[ti].getAttribute('data-theme') === state.theme);
     }
-
-    renderAuthStatus(Db ? Db.getCurrentUser() : null);
-  }
-
-  function renderStorageModeCards() {
-    var mode = Db ? Db.getStorageMode() : 'local';
-    var sharedCard = document.getElementById('db-opt-shared-card');
-    var localCard = document.getElementById('db-opt-local-card');
-    if (sharedCard) {
-      sharedCard.classList.toggle('active', mode === 'shared');
-      var r1 = sharedCard.querySelector('input[type="radio"]');
-      if (r1) r1.checked = mode === 'shared';
-    }
-    if (localCard) {
-      localCard.classList.toggle('active', mode === 'local');
-      var r2 = localCard.querySelector('input[type="radio"]');
-      if (r2) r2.checked = mode === 'local';
-    }
-  }
-
-  function renderAuthStatus(user) {
-    var dict = t();
-    var dot = document.getElementById('saved-auth-dot');
-    var statusEl = document.getElementById('saved-auth-status');
-    var btn = document.getElementById('saved-auth-btn');
-    if (!dot || !statusEl || !btn) return;
-
-    if (user) {
-      dot.classList.add('online');
-      statusEl.textContent = dict.signedInAs + ' ' + (user.displayName || 'Google');
-      btn.textContent = dict.signOutBtn;
-    } else {
-      dot.classList.remove('online');
-      statusEl.textContent = dict.sharedDbPublicHint;
-      btn.textContent = dict.signInGoogleBtn;
-    }
   }
 
   function getFilteredStrategies() {
-    var combined = [];
-    if (activeFilter === 'all' || activeFilter === 'shared') {
-      combined = combined.concat(sharedStrategies);
-    }
-    if (activeFilter === 'all' || activeFilter === 'local') {
-      combined = combined.concat(localStrategies);
-    }
-
     var q = searchQuery.trim().toLowerCase();
-    if (!q) return combined;
+    if (!q) return localStrategies;
 
-    return combined.filter(function (item) {
+    return localStrategies.filter(function (item) {
       var haystack = [
         item.title,
         item.trackName,
         item.carName,
         item.carCategory,
-        item.authorName,
         item.summary && item.summary.stintsLabel,
       ]
         .filter(Boolean)
@@ -184,35 +127,20 @@
     var container = document.getElementById('saved-strategies-list');
     if (!container) return;
 
-    var currentUser = Db ? Db.getCurrentUser() : null;
     var items = getFilteredStrategies();
-    var html = '';
-
-    if (loadingShared && (activeFilter === 'all' || activeFilter === 'shared')) {
-      html += '<p class="field-hint" style="margin-bottom:12px">' + escapeHtml(dict.loadingShared) + '</p>';
-    }
-    if (sharedLoadError && (activeFilter === 'all' || activeFilter === 'shared')) {
-      html += '<div class="alert-box alert-warn" style="margin-top:0;margin-bottom:14px">' + escapeHtml(dict.sharedErrorLoading) + '</div>';
-    }
-
     if (items.length === 0) {
-      html +=
+      container.innerHTML =
         '<div class="empty-state">' +
         '<h3 class="panel-title">' + escapeHtml(dict.emptySavedTitle) + '</h3>' +
         '<p class="panel-subtitle">' + escapeHtml(dict.emptySavedDesc) + '</p>' +
         '<a href="./index.html" class="btn btn-primary" style="margin-top:6px">' + escapeHtml(dict.goToPlannerBtn) + '</a>' +
         '</div>';
-      container.innerHTML = html;
       return;
     }
 
-    html += '<div class="saved-grid">';
+    var html = '<div class="saved-grid">';
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
-      var key = item.source + ':' + item.id;
-      var isShared = item.source === 'shared';
-      var canDelete = !isShared || (currentUser && item.authorUid === currentUser.uid);
-
       var trackStr = (item.trackName || dict.unnamedTrackFallback) +
         (typeof item.trackLengthKm === 'number' && item.trackLengthKm > 0
           ? ' (' + item.trackLengthKm.toFixed(3) + ' ' + dict.trackLengthUnit + ')'
@@ -233,35 +161,20 @@
 
       var sum = item.summary || {};
       var dateStr = formatTimestamp(item);
-      var daysLeft = Db ? Db.getDaysRemaining(item) : 10;
-      var expiryStr = dict.expiresInWord(daysLeft);
-      var metaParts = [];
-      if (isShared) metaParts.push(dict.authorBy + ' ' + (item.authorName || 'GT7 Driver'));
-      if (dateStr) metaParts.push(dateStr);
-      metaParts.push(expiryStr);
-      var authorMeta = metaParts.join(' · ');
 
-      var deleteHtml = '';
-      if (canDelete) {
-        if (pendingDeleteKey === key) {
-          deleteHtml =
-            '<button type="button" class="btn btn-danger-outline" data-action="confirm-delete" data-source="' + item.source + '" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(dict.confirmDeleteBtn) + '</button>' +
-            '<button type="button" class="btn btn-secondary" data-action="cancel-delete">' + escapeHtml(dict.cancelBtn) + '</button>';
-        } else {
-          deleteHtml =
-            '<button type="button" class="btn btn-danger-outline" data-action="ask-delete" data-key="' + escapeHtml(key) + '">' + escapeHtml(dict.deleteBtn) + '</button>';
-        }
-      }
+      var deleteHtml = pendingDeleteId === item.id
+        ? '<button type="button" class="btn btn-danger-outline" data-action="confirm-delete" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(dict.confirmDeleteBtn) + '</button>' +
+          '<button type="button" class="btn btn-secondary" data-action="cancel-delete">' + escapeHtml(dict.cancelBtn) + '</button>'
+        : '<button type="button" class="btn btn-danger-outline" data-action="ask-delete" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(dict.deleteBtn) + '</button>';
 
       html +=
         '<article class="saved-card">' +
         '<div class="saved-card-head">' +
         '<div>' +
         '<h3 class="saved-card-title">' + escapeHtml(item.title || trackStr) + '</h3>' +
-        (authorMeta ? '<div class="saved-card-submeta">' + escapeHtml(authorMeta) + '</div>' : '') +
+        (dateStr ? '<div class="saved-card-submeta">' + escapeHtml(dateStr) + '</div>' : '') +
         '</div>' +
-        '<span class="source-badge ' + (isShared ? 'shared' : 'local') + '">' +
-        escapeHtml(isShared ? dict.badgeShared : dict.badgeLocal) + '</span>' +
+        '<span class="source-badge local">' + escapeHtml(dict.badgeLocal) + '</span>' +
         '</div>' +
         '<div class="saved-card-meta">' +
         '<div><strong>' + escapeHtml(dict.navCircuit) + ':</strong> ' + escapeHtml(trackStr) + '</div>' +
@@ -277,10 +190,7 @@
         '</div>' +
         '<div class="saved-card-actions">' +
         '<div class="saved-card-actions-left">' +
-        '<button type="button" class="btn btn-primary" data-action="load" data-source="' + item.source + '" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(dict.loadInPlannerBtn) + '</button>' +
-        (!isShared
-          ? '<button type="button" class="btn btn-secondary" data-action="publish" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(dict.publishToDbBtn) + '</button>'
-          : '') +
+        '<button type="button" class="btn btn-primary" data-action="load" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(dict.loadInPlannerBtn) + '</button>' +
         '</div>' +
         '<div class="saved-card-actions-right">' + deleteHtml + '</div>' +
         '</div>' +
@@ -291,10 +201,9 @@
     container.innerHTML = html;
   }
 
-  function findItem(source, id) {
-    var list = source === 'shared' ? sharedStrategies : localStrategies;
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].id === id) return list[i];
+  function findItem(id) {
+    for (var i = 0; i < localStrategies.length; i++) {
+      if (localStrategies[i].id === id) return localStrategies[i];
     }
     return null;
   }
@@ -319,32 +228,6 @@
       });
     }
 
-    var modeRadios = document.querySelectorAll('input[name="storage-mode"]');
-    for (var mr = 0; mr < modeRadios.length; mr++) {
-      modeRadios[mr].addEventListener('change', function (ev) {
-        if (Db) {
-          Db.setStorageMode(ev.currentTarget.value);
-          renderStorageModeCards();
-        }
-      });
-    }
-
-    var authBtn = document.getElementById('saved-auth-btn');
-    if (authBtn && Db) {
-      authBtn.addEventListener('click', async function () {
-        showFeedback('', 'ok');
-        try {
-          if (Db.getCurrentUser()) {
-            await Db.signOutUser();
-          } else {
-            await Db.signInWithGoogle();
-          }
-        } catch (_err) {
-          showFeedback(t().saveErrorAuth, 'err');
-        }
-      });
-    }
-
     var searchInput = document.getElementById('saved-search-input');
     if (searchInput) {
       searchInput.addEventListener('input', function (ev) {
@@ -353,122 +236,37 @@
       });
     }
 
-    var filterBtns = document.querySelectorAll('#source-filter-switch button');
-    for (var fb = 0; fb < filterBtns.length; fb++) {
-      filterBtns[fb].addEventListener('click', function (ev) {
-        activeFilter = ev.currentTarget.getAttribute('data-filter') || 'all';
-        for (var k = 0; k < filterBtns.length; k++) {
-          var active = filterBtns[k] === ev.currentTarget;
-          filterBtns[k].classList.toggle('active', active);
-          filterBtns[k].setAttribute('aria-selected', active ? 'true' : 'false');
-        }
-        renderStrategiesList();
-      });
-    }
-
     var listContainer = document.getElementById('saved-strategies-list');
     if (listContainer) {
-      listContainer.addEventListener('click', async function (ev) {
+      listContainer.addEventListener('click', function (ev) {
         var btn = ev.target.closest('button[data-action]');
-        if (!btn || !Db) return;
+        if (!btn) return;
         var action = btn.getAttribute('data-action');
-        var source = btn.getAttribute('data-source');
         var id = btn.getAttribute('data-id');
 
         if (action === 'load') {
-          var item = findItem(source, id);
+          var item = findItem(id);
           if (item) {
-            Db.applySavedStrategyToPlanner(item, state.language, state.theme);
+            Logic.applySavedStrategyToPlanner(item, state.language, state.theme);
             window.location.href = './index.html#step-7';
           }
-        } else if (action === 'publish') {
-          var localItem = findItem('local', id);
-          if (!localItem) return;
-          btn.disabled = true;
-          btn.textContent = t().publishingBtn;
-          showFeedback('', 'ok');
-          try {
-            await Db.publishLocalToShared(localItem);
-            showFeedback(t().publishedOk, 'ok');
-          } catch (err) {
-            var msg = err instanceof Error ? err.message : String(err);
-            if (msg.indexOf('SHARED_DB_UNAVAILABLE') !== -1) {
-              showFeedback(t().saveErrorUnavailable, 'err');
-            } else if (msg.indexOf('AUTH_REQUIRED') !== -1 || msg.indexOf('popup') !== -1 || msg.indexOf('auth/') !== -1) {
-              showFeedback(t().saveErrorAuth, 'err');
-            } else {
-              showFeedback(t().saveErrorGeneric, 'err');
-            }
-          } finally {
-            btn.disabled = false;
-            btn.textContent = t().publishToDbBtn;
-          }
         } else if (action === 'ask-delete') {
-          pendingDeleteKey = btn.getAttribute('data-key');
+          pendingDeleteId = id;
           renderStrategiesList();
         } else if (action === 'cancel-delete') {
-          pendingDeleteKey = null;
+          pendingDeleteId = null;
           renderStrategiesList();
         } else if (action === 'confirm-delete') {
-          pendingDeleteKey = null;
-          showFeedback('', 'ok');
-          if (source === 'local') {
-            localStrategies = Db.deleteLocalStrategy(id);
-            showFeedback(t().deletedOk, 'ok');
-            renderStrategiesList();
-          } else if (source === 'shared') {
-            try {
-              await Db.deleteSharedStrategy(id);
-              showFeedback(t().deletedOk, 'ok');
-            } catch (_err) {
-              showFeedback(t().deleteErrorGeneric, 'err');
-            }
-          }
+          pendingDeleteId = null;
+          localStrategies = Logic.deleteLocalStrategy(id);
+          showFeedback(t().deletedOk, 'ok');
+          renderStrategiesList();
         }
       });
     }
   }
 
   applyThemeAndLanguage();
-  renderStorageModeCards();
   bindListeners();
   renderStrategiesList();
-
-  if (Db) {
-    Db.onAuthChange(function (user) {
-      renderAuthStatus(user);
-      renderStrategiesList();
-    });
-
-    Db.init().then(function (available) {
-      renderAuthStatus(Db.getCurrentUser());
-      if (!available) {
-        loadingShared = false;
-        renderStrategiesList();
-        return;
-      }
-      Db.subscribeSharedStrategies(
-        function (items) {
-          loadingShared = false;
-          sharedLoadError = false;
-          sharedStrategies = items;
-          renderStrategiesList();
-        },
-        function () {
-          loadingShared = false;
-          sharedLoadError = true;
-          renderStrategiesList();
-        }
-      ).then(function (unsub) {
-        unsubscribeShared = unsub;
-      });
-    });
-  } else {
-    loadingShared = false;
-    renderStrategiesList();
-  }
-
-  window.addEventListener('beforeunload', function () {
-    if (typeof unsubscribeShared === 'function') unsubscribeShared();
-  });
 })();

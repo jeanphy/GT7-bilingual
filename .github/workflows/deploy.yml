@@ -34,7 +34,7 @@ jobs:
       - name: Package static site
         run: |
           mkdir -p _site
-          cp index.html saved.html firebase-applet-config.json _site/
+          cp index.html saved.html _site/
           cp -r css js _site/
 
       - name: Upload GitHub Pages artifact

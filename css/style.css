@@ -879,7 +879,7 @@ tr.stint-row.drag-over td {
 
 .save-bar-grid {
   display: grid;
-  grid-template-columns: 1.6fr 1.2fr auto;
+  grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: end;
 }

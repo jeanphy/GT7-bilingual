@@ -22,12 +22,10 @@ export default defineConfig(() => {
               fs.cpSync(srcDir, destDir, { recursive: true, force: true });
             }
           }
-          for (const file of ['saved.html', 'firebase-applet-config.json']) {
-            const srcFile = path.resolve(__dirname, file);
-            const destFile = path.resolve(distDir, file);
-            if (fs.existsSync(distDir) && fs.existsSync(srcFile)) {
-              fs.copyFileSync(srcFile, destFile);
-            }
+          const srcSaved = path.resolve(__dirname, 'saved.html');
+          const destSaved = path.resolve(distDir, 'saved.html');
+          if (fs.existsSync(distDir) && fs.existsSync(srcSaved)) {
+            fs.copyFileSync(srcSaved, destSaved);
           }
         },
       },

@@ -4,7 +4,6 @@
   var TRANSLATIONS = window.GT7I18n.TRANSLATIONS;
   var Logic = window.GT7Logic;
   var Strategy = window.GT7Strategy;
-  var Db = window.GT7Db;
   var COMPOUND_ORDER = Logic.COMPOUND_ORDER;
 
   var state = Logic.loadSavedAppState();
@@ -82,32 +81,6 @@
     var themeBtns = document.querySelectorAll('#theme-switch button');
     for (var ti = 0; ti < themeBtns.length; ti++) {
       themeBtns[ti].classList.toggle('active', themeBtns[ti].getAttribute('data-theme') === state.theme);
-    }
-
-    renderSaveAuthStatus(Db ? Db.getCurrentUser() : null);
-  }
-
-  function renderSaveAuthStatus(user) {
-    var dict = t();
-    var authRow = document.getElementById('save-auth-row');
-    var targetSelect = document.getElementById('save-target-select');
-    var dot = document.getElementById('save-auth-dot');
-    var statusEl = document.getElementById('save-auth-status');
-    var btn = document.getElementById('save-auth-btn');
-    if (!authRow || !targetSelect || !dot || !statusEl || !btn) return;
-
-    var isShared = targetSelect.value === 'shared';
-    authRow.classList.toggle('hidden', !isShared);
-    if (!isShared) return;
-
-    if (user) {
-      dot.classList.add('online');
-      statusEl.textContent = dict.signedInAs + ' ' + (user.displayName || 'Google');
-      btn.textContent = dict.signOutBtn;
-    } else {
-      dot.classList.remove('online');
-      statusEl.textContent = dict.sharedDbPublicHint;
-      btn.textContent = dict.signInGoogleBtn;
     }
   }
 
@@ -885,36 +858,10 @@
       window.print();
     });
 
-    // Save Strategy controls
-    var targetSelect = document.getElementById('save-target-select');
-    if (targetSelect && Db) {
-      targetSelect.value = Db.getStorageMode();
-      targetSelect.addEventListener('change', function () {
-        Db.setStorageMode(targetSelect.value);
-        renderSaveAuthStatus(Db.getCurrentUser());
-        showSaveFeedback('', 'ok');
-      });
-    }
-
-    var authBtn = document.getElementById('save-auth-btn');
-    if (authBtn && Db) {
-      authBtn.addEventListener('click', async function () {
-        showSaveFeedback('', 'ok');
-        try {
-          if (Db.getCurrentUser()) {
-            await Db.signOutUser();
-          } else {
-            await Db.signInWithGoogle();
-          }
-        } catch (_err) {
-          showSaveFeedback(t().saveErrorAuth, 'err');
-        }
-      });
-    }
-
+    // Save Strategy (localStorage)
     var saveBtn = document.getElementById('save-strategy-btn');
-    if (saveBtn && Db) {
-      saveBtn.addEventListener('click', async function () {
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
         var dict = t();
         var titleInput = document.getElementById('save-strategy-title');
         var rawTitle = titleInput ? titleInput.value.trim() : '';
@@ -923,38 +870,14 @@
           state.config.car && state.config.car.name ? state.config.car.name.trim() : '',
         ].filter(Boolean).join(' · ');
 
-        var chosenTarget = targetSelect ? targetSelect.value : 'shared';
-        saveBtn.disabled = true;
-        saveBtn.textContent = dict.savingBtn;
-        showSaveFeedback('', 'ok');
-
-        try {
-          var result = await Db.saveStrategy({
-            target: chosenTarget,
-            title: rawTitle || defaultTitle,
-            config: state.config,
-            stints: lastEditedStints || [],
-            evaluated: lastActiveEval || {},
-            localAuthorName: dict.badgeLocal,
-          });
-          if (titleInput && !rawTitle) titleInput.value = '';
-          showSaveFeedback(
-            result.target === 'shared' ? dict.saveSuccessShared : dict.saveSuccessLocal,
-            'ok'
-          );
-        } catch (err) {
-          var msg = err instanceof Error ? err.message : String(err);
-          if (msg.indexOf('SHARED_DB_UNAVAILABLE') !== -1) {
-            showSaveFeedback(dict.saveErrorUnavailable, 'err');
-          } else if (msg.indexOf('AUTH_REQUIRED') !== -1 || msg.indexOf('popup') !== -1 || msg.indexOf('auth/') !== -1) {
-            showSaveFeedback(dict.saveErrorAuth, 'err');
-          } else {
-            showSaveFeedback(dict.saveErrorGeneric, 'err');
-          }
-        } finally {
-          saveBtn.disabled = false;
-          saveBtn.textContent = t().saveStrategyBtn;
-        }
+        Logic.saveStrategyLocally({
+          title: rawTitle || defaultTitle,
+          config: state.config,
+          stints: lastEditedStints || [],
+          evaluated: lastActiveEval || {},
+        });
+        if (titleInput && !rawTitle) titleInput.value = '';
+        showSaveFeedback(dict.saveSuccessLocal, 'ok');
       });
     }
   }
@@ -995,13 +918,4 @@
   syncInputsFromState();
   bindStaticListeners();
   renderAllDynamicOutputs();
-
-  if (Db) {
-    Db.onAuthChange(function (user) {
-      renderSaveAuthStatus(user);
-    });
-    Db.init().then(function () {
-      renderSaveAuthStatus(Db.getCurrentUser());
-    });
-  }
 })();
