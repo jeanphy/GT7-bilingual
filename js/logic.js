@@ -10,6 +10,7 @@
   var TANK_CAPACITY_LITERS = 100;
   var COMPOUND_ORDER = ['soft', 'medium', 'hard', 'intermediate', 'wet'];
   var STORAGE_KEY = 'gt7_endurance_strategy_v1';
+  var ACTIVE_STINTS_KEY = 'gt7_endurance_active_stints_v1';
 
   function parseDurationMinutes(raw) {
     if (typeof raw !== 'string') return null;
@@ -288,6 +289,49 @@
     }
   }
 
+  function loadActiveCustomStints() {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      var raw = window.localStorage.getItem(ACTIVE_STINTS_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) return null;
+      var valid = parsed
+        .filter(function (s) {
+          return (
+            s &&
+            COMPOUND_ORDER.indexOf(s.compound) !== -1 &&
+            Number.isFinite(s.laps) &&
+            s.laps >= 1
+          );
+        })
+        .map(function (s, idx) {
+          return {
+            id: typeof s.id === 'string' && s.id ? s.id : 'stint-' + idx,
+            compound: s.compound,
+            laps: Math.floor(s.laps),
+            changeTires: Boolean(s.changeTires),
+          };
+        });
+      return valid.length > 0 ? valid : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function saveActiveCustomStints(stints) {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      if (!stints || !Array.isArray(stints) || stints.length === 0) {
+        window.localStorage.removeItem(ACTIVE_STINTS_KEY);
+      } else {
+        window.localStorage.setItem(ACTIVE_STINTS_KEY, JSON.stringify(stints));
+      }
+    } catch (_e) {
+      // Ignore storage errors
+    }
+  }
+
   return {
     TANK_CAPACITY_LITERS: TANK_CAPACITY_LITERS,
     COMPOUND_ORDER: COMPOUND_ORDER,
@@ -302,5 +346,7 @@
     createDefaultAppState: createDefaultAppState,
     loadSavedAppState: loadSavedAppState,
     saveAppState: saveAppState,
+    loadActiveCustomStints: loadActiveCustomStints,
+    saveActiveCustomStints: saveActiveCustomStints,
   };
 });

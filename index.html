@@ -24,12 +24,19 @@
     <script defer src="./js/i18n.js"></script>
     <script defer src="./js/logic.js"></script>
     <script defer src="./js/strategy.js"></script>
+    <script defer src="./js/db.js"></script>
     <script defer src="./js/app.js"></script>
   </head>
   <body>
     <header class="topbar no-print">
       <div class="topbar-inner">
-        <a href="#top" id="brand-title" class="brand">GT7 Endurance</a>
+        <div class="brand-group">
+          <a href="#top" id="brand-title" class="brand">GT7 Endurance</a>
+          <div class="page-switch">
+            <a href="./index.html" class="page-link active" data-i18n="navPlannerPage">Planificateur</a>
+            <a href="./saved.html" class="page-link" data-i18n="navSavedPage">Stratégies sauvegardées</a>
+          </div>
+        </div>
         <nav id="top-nav" class="topnav" aria-label="Étapes">
           <a href="#step-1" data-i18n="navCircuit">Circuit</a>
           <a href="#step-2" data-i18n="navRace">Course</a>
@@ -331,6 +338,39 @@
                 Imprimer / PDF
               </button>
             </div>
+          </div>
+
+          <div class="save-bar no-print">
+            <div class="save-bar-head">
+              <span class="save-bar-title" data-i18n="saveStrategyHeading">Sauvegarder cette stratégie</span>
+              <a href="./saved.html" class="save-bar-link" data-i18n="viewSavedLink">Voir les stratégies sauvegardées →</a>
+            </div>
+            <div class="save-bar-grid">
+              <div class="field">
+                <label for="save-strategy-title" data-i18n="saveTitleLabel">Nom de la stratégie</label>
+                <input id="save-strategy-title" type="text" class="input" maxlength="100" />
+              </div>
+              <div class="field">
+                <label for="save-target-select" data-i18n="saveDbOptionLabel">Destination (Base de données)</label>
+                <select id="save-target-select" class="select">
+                  <option value="shared" data-i18n="sharedDbOption">Base partagée (visible par tous)</option>
+                  <option value="local" data-i18n="localDbOption">Navigateur local uniquement</option>
+                </select>
+              </div>
+              <button type="button" id="save-strategy-btn" class="btn btn-primary" data-i18n="saveStrategyBtn">
+                Sauvegarder
+              </button>
+            </div>
+            <div id="save-auth-row" class="save-auth-row">
+              <div class="auth-chip">
+                <span id="save-auth-dot" class="auth-dot"></span>
+                <span id="save-auth-status" data-i18n="sharedDbPublicHint">Lecture ouverte à tous · Connexion Google requise pour publier.</span>
+              </div>
+              <button type="button" id="save-auth-btn" class="btn btn-secondary" style="height:30px;padding:0 12px" data-i18n="signInGoogleBtn">
+                Connexion Google
+              </button>
+            </div>
+            <div id="save-feedback" class="inline-feedback hidden" role="status"></div>
           </div>
 
           <div id="print-race-summary" class="print-only print-grid-summary"></div>

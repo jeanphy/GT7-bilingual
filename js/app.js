@@ -4,10 +4,13 @@
   var TRANSLATIONS = window.GT7I18n.TRANSLATIONS;
   var Logic = window.GT7Logic;
   var Strategy = window.GT7Strategy;
+  var Db = window.GT7Db;
   var COMPOUND_ORDER = Logic.COMPOUND_ORDER;
 
   var state = Logic.loadSavedAppState();
-  var customStints = null;
+  var customStints = Logic.loadActiveCustomStints();
+  var lastActiveEval = null;
+  var lastEditedStints = null;
 
   function t() {
     return TRANSLATIONS[state.language] || TRANSLATIONS.fr;
@@ -68,6 +71,8 @@
     document.getElementById('car-bop-weight-label-text').textContent =
       dict.bopWeightLabel + ' (' + dict.bopWeightUnit + ')';
     document.getElementById('car-bop-weight-input').placeholder = dict.bopWeightPlaceholder;
+    var saveTitleInput = document.getElementById('save-strategy-title');
+    if (saveTitleInput) saveTitleInput.placeholder = dict.saveTitlePlaceholder;
 
     var langBtns = document.querySelectorAll('#lang-switch button');
     for (var li = 0; li < langBtns.length; li++) {
@@ -78,6 +83,44 @@
     for (var ti = 0; ti < themeBtns.length; ti++) {
       themeBtns[ti].classList.toggle('active', themeBtns[ti].getAttribute('data-theme') === state.theme);
     }
+
+    renderSaveAuthStatus(Db ? Db.getCurrentUser() : null);
+  }
+
+  function renderSaveAuthStatus(user) {
+    var dict = t();
+    var authRow = document.getElementById('save-auth-row');
+    var targetSelect = document.getElementById('save-target-select');
+    var dot = document.getElementById('save-auth-dot');
+    var statusEl = document.getElementById('save-auth-status');
+    var btn = document.getElementById('save-auth-btn');
+    if (!authRow || !targetSelect || !dot || !statusEl || !btn) return;
+
+    var isShared = targetSelect.value === 'shared';
+    authRow.classList.toggle('hidden', !isShared);
+    if (!isShared) return;
+
+    if (user) {
+      dot.classList.add('online');
+      statusEl.textContent = dict.signedInAs + ' ' + (user.displayName || 'Google');
+      btn.textContent = dict.signOutBtn;
+    } else {
+      dot.classList.remove('online');
+      statusEl.textContent = dict.sharedDbPublicHint;
+      btn.textContent = dict.signInGoogleBtn;
+    }
+  }
+
+  function showSaveFeedback(message, kind) {
+    var el = document.getElementById('save-feedback');
+    if (!el) return;
+    if (!message) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    el.className = 'inline-feedback ' + (kind === 'ok' ? 'alert-ok' : 'alert-err');
+    el.textContent = message;
   }
 
   function syncInputsFromState() {
@@ -256,6 +299,8 @@
     var editedStints = customStints || optimalStints;
     var isCustomEdited = customStints !== null;
     var activeEval = Strategy.evaluateStrategy(cfg, editedStints);
+    lastActiveEval = activeEval;
+    lastEditedStints = editedStints;
 
     // Step 2 live stats
     document.getElementById('parsed-duration-value').textContent =
@@ -560,6 +605,7 @@
         } else if (optimizerResult.alternatives[idx]) {
           customStints = strategyToStintInputs(optimizerResult.alternatives[idx]);
         }
+        Logic.saveActiveCustomStints(customStints);
         renderAllDynamicOutputs();
       });
     }
@@ -603,6 +649,7 @@
           currentList.splice(idx, 1);
           customStints = Strategy.normalizeStintTireFlags(currentList);
         }
+        Logic.saveActiveCustomStints(customStints);
         renderAllDynamicOutputs();
       });
     }
@@ -650,6 +697,7 @@
             return Object.assign({}, s);
           });
           customStints = Strategy.reorderStints(currentList, dragFromIdx, toIdx);
+          Logic.saveActiveCustomStints(customStints);
           dragFromIdx = null;
           renderAllDynamicOutputs();
         }
@@ -689,6 +737,7 @@
       var defaults = Logic.createDefaultAppState();
       state.config = defaults.config;
       customStints = null;
+      Logic.saveActiveCustomStints(null);
       syncInputsFromState();
       persistAndUpdate();
     });
@@ -807,6 +856,7 @@
     // Step 7 top actions
     document.getElementById('apply-optimal-btn').addEventListener('click', function () {
       customStints = null;
+      Logic.saveActiveCustomStints(null);
       renderAllDynamicOutputs();
     });
 
@@ -827,12 +877,86 @@
         laps: laps,
         changeTires: true,
       }]);
+      Logic.saveActiveCustomStints(customStints);
       renderAllDynamicOutputs();
     });
 
     document.getElementById('print-pdf-btn').addEventListener('click', function () {
       window.print();
     });
+
+    // Save Strategy controls
+    var targetSelect = document.getElementById('save-target-select');
+    if (targetSelect && Db) {
+      targetSelect.value = Db.getStorageMode();
+      targetSelect.addEventListener('change', function () {
+        Db.setStorageMode(targetSelect.value);
+        renderSaveAuthStatus(Db.getCurrentUser());
+        showSaveFeedback('', 'ok');
+      });
+    }
+
+    var authBtn = document.getElementById('save-auth-btn');
+    if (authBtn && Db) {
+      authBtn.addEventListener('click', async function () {
+        showSaveFeedback('', 'ok');
+        try {
+          if (Db.getCurrentUser()) {
+            await Db.signOutUser();
+          } else {
+            await Db.signInWithGoogle();
+          }
+        } catch (_err) {
+          showSaveFeedback(t().saveErrorAuth, 'err');
+        }
+      });
+    }
+
+    var saveBtn = document.getElementById('save-strategy-btn');
+    if (saveBtn && Db) {
+      saveBtn.addEventListener('click', async function () {
+        var dict = t();
+        var titleInput = document.getElementById('save-strategy-title');
+        var rawTitle = titleInput ? titleInput.value.trim() : '';
+        var defaultTitle = [
+          state.config.trackName.trim() || dict.unnamedTrackFallback,
+          state.config.car && state.config.car.name ? state.config.car.name.trim() : '',
+        ].filter(Boolean).join(' · ');
+
+        var chosenTarget = targetSelect ? targetSelect.value : 'shared';
+        saveBtn.disabled = true;
+        saveBtn.textContent = dict.savingBtn;
+        showSaveFeedback('', 'ok');
+
+        try {
+          var result = await Db.saveStrategy({
+            target: chosenTarget,
+            title: rawTitle || defaultTitle,
+            config: state.config,
+            stints: lastEditedStints || [],
+            evaluated: lastActiveEval || {},
+            localAuthorName: dict.badgeLocal,
+          });
+          if (titleInput && !rawTitle) titleInput.value = '';
+          showSaveFeedback(
+            result.target === 'shared' ? dict.saveSuccessShared : dict.saveSuccessLocal,
+            'ok'
+          );
+        } catch (err) {
+          var msg = err instanceof Error ? err.message : String(err);
+          if (msg.indexOf('SHARED_DB_UNAVAILABLE') !== -1) {
+            showSaveFeedback(dict.saveErrorUnavailable, 'err');
+          } else if (msg.indexOf('AUTH_REQUIRED') !== -1 || msg.indexOf('popup') !== -1 || msg.indexOf('auth/') !== -1) {
+            showSaveFeedback(dict.saveErrorAuth, 'err');
+          } else {
+            showSaveFeedback(dict.saveErrorGeneric, 'err');
+          }
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = t().saveStrategyBtn;
+        }
+      });
+    }
   }
 
   function handleTireEvent(ev) {
@@ -871,4 +995,13 @@
   syncInputsFromState();
   bindStaticListeners();
   renderAllDynamicOutputs();
+
+  if (Db) {
+    Db.onAuthChange(function (user) {
+      renderSaveAuthStatus(user);
+    });
+    Db.init().then(function () {
+      renderSaveAuthStatus(Db.getCurrentUser());
+    });
+  }
 })();

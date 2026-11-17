@@ -4,6 +4,7 @@ var test = require('node:test');
 var assert = require('node:assert/strict');
 var Logic = require('../js/logic.js');
 var Strategy = require('../js/strategy.js');
+var Db = require('../js/db.js');
 
 test('parseDurationMinutes parses minutes, hours, and 1h30 formats', function () {
   assert.equal(Logic.parseDurationMinutes('90'), 90);
@@ -320,6 +321,111 @@ test('Reordering stints recalculates refuel amounts and normalizes tire change f
   assert.equal(evalStart.stints[1].fuelAddedBeforeStint, 75);
 });
 
+test('Db.buildStrategyPayload enforces Firestore blueprint schema, bounds, and non-PII keys', function () {
+  var cfg = Logic.createDefaultConfig();
+  cfg.trackName = '';
+  cfg.car = {
+    name: 'Porsche 911 RSR (991) ’17',
+    category: 'Gr.3',
+    bopPowerHp: 520,
+    bopWeightKg: 1245,
+  };
+  cfg.raceInfo = {
+    tireWearMultiplier: 3,
+    fuelMultiplier: 2,
+  };
 
+  var stints = [
+    { id: '1', compound: 'soft', laps: 8, changeTires: true },
+    { id: '2', compound: 'medium', laps: 14, changeTires: false },
+  ];
+  var evaluated = Strategy.evaluateStrategy(cfg, stints);
 
+  var payload = Db.buildStrategyPayload({
+    title: '  ',
+    config: cfg,
+    stints: stints,
+    evaluated: evaluated,
+    authorUid: 'uid-abc-123',
+    authorName: 'Driver One',
+    forFirestore: false,
+  });
 
+  var expectedKeys = [
+    'title', 'visibility', 'authorUid', 'authorName',
+    'trackName', 'trackLengthKm', 'carName', 'carCategory',
+    'bopPowerHp', 'bopWeightKg', 'mode', 'durationInput',
+    'durationMinutes', 'totalLaps', 'tireWearMultiplier', 'fuelMultiplier',
+    'pitTransitSeconds', 'tireChangeSeconds', 'refuelRateLps',
+    'fuelPerLapLiters', 'fuelMarginLaps', 'tires', 'stints',
+    'summary', 'createdAt', 'updatedAt', 'expiresAt',
+  ].sort();
+
+  assert.deepEqual(Object.keys(payload).sort(), expectedKeys);
+  assert.equal(payload.visibility, 'public');
+  assert.equal(payload.trackName, 'Custom Circuit');
+  assert.equal(payload.title, 'GT7 Strategy');
+  assert.equal(payload.stints[0].changeTires, true);
+  assert.equal(Number.isInteger(payload.totalLaps), true);
+  assert.equal(Number.isInteger(payload.summary.totalLaps), true);
+  assert.equal(Number.isInteger(payload.summary.totalStops), true);
+  assert.equal(payload.email, undefined);
+
+  var createdMs = new Date(payload.createdAt).getTime();
+  var expiresMs = new Date(payload.expiresAt).getTime();
+  assert.equal(expiresMs - createdMs, Db.RETENTION_MS);
+  assert.equal(Db.isExpiredRecord(payload, createdMs + Db.RETENTION_MS - 1000), false);
+  assert.equal(Db.isExpiredRecord(payload, createdMs + Db.RETENTION_MS), true);
+  assert.equal(Db.getDaysRemaining(payload, createdMs), 10);
+  assert.equal(Db.getDaysRemaining(payload, createdMs + Db.RETENTION_MS), 0);
+});
+
+test('Db.savedRecordToConfig reconstructs full planner config, multipliers, and custom stints', function () {
+  var cfg = Logic.createDefaultConfig();
+  cfg.trackName = 'Circuit de la Sarthe';
+  cfg.trackLengthInput = '13.626';
+  cfg.trackLengthKm = 13.626;
+  cfg.mode = 'laps';
+  cfg.totalLaps = 14;
+  cfg.car = {
+    name: 'Toyota GR010 HYBRID ’21',
+    category: 'Gr.1',
+    bopPowerHp: 671,
+    bopWeightKg: 1040,
+  };
+  cfg.raceInfo = {
+    tireWearMultiplier: 4,
+    fuelMultiplier: 3,
+  };
+  var stints = [
+    { id: 'a', compound: 'hard', laps: 7, changeTires: true },
+    { id: 'b', compound: 'hard', laps: 7, changeTires: false },
+  ];
+  var evaluated = Strategy.evaluateStrategy(cfg, stints);
+
+  var record = Db.buildStrategyPayload({
+    title: 'Le Mans 14L',
+    config: cfg,
+    stints: stints,
+    evaluated: evaluated,
+    authorUid: 'local',
+    authorName: 'Local',
+    forFirestore: false,
+  });
+
+  var restored = Db.savedRecordToConfig(record);
+  assert.equal(restored.config.trackName, 'Circuit de la Sarthe');
+  assert.equal(restored.config.trackLengthKm, 13.626);
+  assert.equal(restored.config.mode, 'laps');
+  assert.equal(restored.config.totalLaps, 14);
+  assert.equal(restored.config.car.name, 'Toyota GR010 HYBRID ’21');
+  assert.equal(restored.config.car.category, 'Gr.1');
+  assert.equal(restored.config.car.bopPowerHp, 671);
+  assert.equal(restored.config.car.bopWeightKg, 1040);
+  assert.equal(restored.config.raceInfo.tireWearMultiplier, 4);
+  assert.equal(restored.config.raceInfo.fuelMultiplier, 3);
+  assert.deepEqual(
+    restored.stints.map(function (s) { return [s.compound, s.laps, s.changeTires]; }),
+    [['hard', 7, true], ['hard', 7, false]]
+  );
+});
